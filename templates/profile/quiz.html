@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Knowledge Quiz{% endblock %}
+
+{% block extra_head %}
+<style>
+.quiz-wrap { max-width: 720px; margin: 0 auto; padding: 2rem; }
+.quiz-header { text-align: center; margin-bottom: 2.5rem; }
+.quiz-domain-badge {
+  display: inline-block; padding: 6px 16px; border-radius: 99px;
+  background: var(--accent-glow); color: var(--accent2);
+  font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+  border: 1px solid var(--accent); margin-bottom: 1rem;
+}
+.question-card { margin-bottom: 1.5rem; padding: 1.5rem; }
+.question-type-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+.type-domain   { background: rgba(99,102,241,0.15); color: var(--accent2); }
+.type-computer { background: rgba(16,185,129,0.15); color: var(--success); }
+.question-text { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 1rem; line-height: 1.5; }
+.options-list  { display: flex; flex-direction: column; gap: 8px; }
+.option-item   input[type="radio"] { display: none; }
+.option-item label {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: var(--radius);
+  background: var(--surface2); border: 1px solid var(--border);
+  cursor: pointer; transition: all var(--transition); font-size: 0.9rem;
+}
+.option-item label:hover { border-color: var(--accent2); background: var(--accent-glow); }
+.option-item input[type="radio"]:checked + label {
+  border-color: var(--accent); background: var(--accent-glow);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.option-letter {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: var(--border); display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+  transition: all var(--transition);
+}
+.option-item input:checked + label .option-letter { background: var(--accent); color: #fff; }
+.quiz-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+.timer-wrap { font-size: 0.85rem; color: var(--text-muted); }
+.timer-num   { font-family: var(--font-head); font-size: 1.1rem; color: var(--text); font-weight: 700; }
+.answered-count { font-size: 0.85rem; color: var(--text-muted); }
+.answered-count span { color: var(--accent2); font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-wrap">
+  <div class="steps mt-3">
+    <div class="step done"><div class="step-num">✓</div><span class="step-label">Account</span></div>
+    <div class="step-line"></div>
+    <div class="step done"><div class="step-num">✓</div><span class="step-label">Profile</span></div>
+    <div class="step-line"></div>
+    <div class="step active"><div class="step-num">3</div><span class="step-label">Quiz</span></div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">4</div><span class="step-label">Your Path</span></div>
+  </div>
+
+  <div class="quiz-header">
+    <div class="quiz-domain-badge">{{ domain.replace('_', ' ').upper() }} QUIZ</div>
+    <h1>Knowledge Assessment</h1>
+    <p style="margin-top:8px;">Answer {{ total }} questions to calibrate your learning path. No pressure — this just helps us personalize it for you.</p>
+  </div>
+
+  <div class="quiz-meta">
+    <div class="timer-wrap">
+      ⏱ Time: <span class="timer-num" id="timerDisplay">00:00</span>
+    </div>
+    <div class="answered-count">
+      Answered: <span id="answeredCount">0</span> / {{ total }}
+    </div>
+  </div>
+
+  <form method="POST" action="{{ url_for('profile.submit_quiz') }}" id="quizForm">
+    {% for q in questions %}
+    <div class="card question-card" id="qcard_{{ loop.index0 }}">
+      <div class="question-type-badge type-{{ q.type }}">
+        {{ '🎯 Domain' if q.type == 'domain' else '💻 Computer Knowledge' }}
+      </div>
+      <div class="question-text">{{ loop.index }}. {{ q.question }}</div>
+      <div class="options-list">
+        {% for i, opt in enumerate(q.options) %}
+        <div class="option-item">
+          <input type="radio" name="q_{{ q.id }}" id="opt_{{ q.id }}_{{ i }}"
+                value="{{ i }}" onchange="updateCount()">
+          <label for="opt_{{ q.id }}_{{ i }}">
+            <span class="option-letter">{{ ['A','B','C','D'][i] }}</span>
+            {{ opt }}
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="card" style="text-align:center;padding:2rem;">
+      <p class="mb-2" style="color:var(--text-muted);font-size:0.9rem;">
+        Make sure you've answered all questions before submitting.
+      </p>
+      <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+        Submit Quiz & Generate Path →
+      </button>
+      <div class="mt-2 text-sm text-muted" id="unansweredNote">
+        Answer all {{ total }} questions to continue
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Make enumerate available in jinja context - handled by passing it
+const total = {{ total }};
+let answered = 0;
+let seconds = 0;
+
+// Timer
+const timerDisplay = document.getElementById('timerDisplay');
+const timerInterval = setInterval(() => {
+  seconds++;
+  const m = String(Math.floor(seconds/60)).padStart(2,'0');
+  const s = String(seconds%60).padStart(2,'0');
+  timerDisplay.textContent = `${m}:${s}`;
+}, 1000);
+
+function updateCount() {
+  const radios = document.querySelectorAll('input[type="radio"]');
+  const answered_names = new Set();
+  radios.forEach(r => { if (r.checked) answered_names.add(r.name); });
+  answered = answered_names.size;
+  document.getElementById('answeredCount').textContent = answered;
+  const btn = document.getElementById('submitBtn');
+  const note = document.getElementById('unansweredNote');
+  if (answered >= total) {
+    btn.disabled = false;
+    note.textContent = '✓ All answered! Ready to submit.';
+    note.style.color = 'var(--success)';
+  } else {
+    btn.disabled = true;
+    note.textContent = `Answer all ${total} questions to continue`;
+    note.style.color = '';
+  }
+}
+
+// Stop timer on submit
+document.getElementById('quizForm').addEventListener('submit', () => {
+  clearInterval(timerInterval);
+});
+</script>
+{% endblock %}

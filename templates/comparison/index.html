@@ -1,0 +1,966 @@
+{% extends "base.html" %}
+{% block title %}System Comparison{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ── PAGE LAYOUT ───────────────────────────────────────────── */
+.cmp-wrap { max-width: 1280px; margin: 0 auto; padding: 1.5rem 2rem; }
+
+/* ── HERO ──────────────────────────────────────────────────── */
+.cmp-hero {
+  padding: 2.5rem;
+  background: linear-gradient(135deg,rgba(99,102,241,.14) 0%,rgba(99,102,241,.03) 100%);
+  border: 1px solid rgba(99,102,241,.25); border-radius: 20px;
+  margin-bottom: 1.75rem; position: relative; overflow: hidden;
+}
+.cmp-hero::after {
+  content:''; position:absolute; right:-60px; top:-60px;
+  width:280px; height:280px; border-radius:50%;
+  background: radial-gradient(circle,rgba(99,102,241,.18),transparent 70%);
+  pointer-events:none;
+}
+.hero-tag {
+  display:inline-block; padding:4px 14px; border-radius:99px;
+  background:rgba(99,102,241,.15); border:1px solid var(--accent);
+  color:var(--accent2); font-size:.72rem; font-weight:700;
+  letter-spacing:.1em; text-transform:uppercase; margin-bottom:.75rem;
+}
+.hero-title { font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; line-height:1.2; }
+.hero-sub { color:var(--text-muted); font-size:.9rem; margin-top:.5rem; max-width:680px; }
+
+/* ── TABS ──────────────────────────────────────────────────── */
+.tabs-row {
+  display:flex; gap:4px; margin-bottom:1.75rem;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:4px;
+}
+.tab-btn {
+  flex:1; padding:10px 16px; border:none; border-radius:9px;
+  background:transparent; color:var(--text-muted);
+  font-family:var(--font-body); font-size:.875rem; font-weight:600;
+  cursor:pointer; transition:all .2s; display:flex; align-items:center;
+  justify-content:center; gap:6px;
+}
+.tab-btn:hover { color:var(--text); background:var(--surface2); }
+.tab-btn.active { background:var(--accent); color:#fff; }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* ── RUN BUTTON AREA ───────────────────────────────────────── */
+.run-area { text-align:center; margin-bottom:2rem; }
+.run-btn {
+  padding:14px 40px; border-radius:14px; border:none;
+  background:var(--accent); color:#fff; font-size:1rem; font-weight:700;
+  cursor:pointer; transition:all .2s; font-family:var(--font-body);
+  box-shadow:0 0 24px rgba(99,102,241,.35);
+}
+.run-btn:hover { background:#4F46E5; transform:translateY(-2px); box-shadow:0 8px 32px rgba(99,102,241,.45); }
+.run-btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+
+/* ── LOADING SPINNER INLINE ────────────────────────────────── */
+.inline-spinner {
+  display:none; align-items:center; gap:12px; justify-content:center;
+  color:var(--text-muted); font-size:.9rem; margin-top:.75rem;
+}
+.spin { width:22px; height:22px; border:3px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── COMPARISON GRID ───────────────────────────────────────── */
+.cmp-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.25rem; margin-bottom:2rem; }
+.sys-card {
+  border-radius:16px; border:2px solid var(--border);
+  background:var(--surface); overflow:hidden; transition:all .25s;
+  position:relative;
+}
+.sys-card.winner { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent),0 8px 32px rgba(99,102,241,.2); }
+.sys-card.winner::before {
+  content:'★ Best System'; position:absolute; top:12px; right:12px;
+  background:var(--accent); color:#fff; font-size:.68rem; font-weight:700;
+  padding:3px 10px; border-radius:99px; letter-spacing:.06em;
+}
+.sys-header { padding:1.25rem 1.25rem .75rem; }
+.sys-label { font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted); }
+.sys-name { font-size:1.1rem; font-weight:800; margin-top:4px; }
+.sys-desc { font-size:.8rem; color:var(--text-muted); margin-top:4px; line-height:1.5; }
+.sys-body { padding:0 1.25rem 1.25rem; }
+
+/* ── METRIC ROWS ───────────────────────────────────────────── */
+.metric-row { margin-bottom:.7rem; }
+.metric-label-row { display:flex; justify-content:space-between; font-size:.78rem; margin-bottom:3px; }
+.metric-name { color:var(--text-dim); }
+.metric-val  { font-weight:700; }
+.metric-bar-wrap { background:var(--border); border-radius:99px; height:5px; }
+.metric-bar  { height:5px; border-radius:99px; transition:width 1s ease; }
+
+/* ── SCORE CIRCLE ──────────────────────────────────────────── */
+.score-circle {
+  width:80px; height:80px; border-radius:50%; margin:0 auto 1rem;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  background:conic-gradient(var(--accent) var(--pct), var(--border) 0);
+  box-shadow: 0 0 0 4px var(--surface), 0 0 0 6px var(--border);
+}
+.score-inner {
+  width:62px; height:62px; border-radius:50%;
+  background:var(--surface); display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+.score-num  { font-family:var(--font-head); font-size:1.1rem; font-weight:800; line-height:1; }
+.score-unit { font-size:.6rem; color:var(--text-muted); }
+
+/* ── RESPONSE TIME BADGE ───────────────────────────────────── */
+.rt-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px; border-radius:8px; font-size:.8rem; font-weight:700;
+  background:rgba(16,185,129,.1); color:var(--success); margin-bottom:.75rem;
+}
+.rt-badge.slow { background:rgba(245,158,11,.1); color:var(--warning); }
+.rt-badge.slowest { background:rgba(239,68,68,.1); color:var(--error); }
+
+/* ── MODULE PREVIEW ────────────────────────────────────────── */
+.mod-preview { margin-top:.75rem; border-top:1px solid var(--border); padding-top:.75rem; }
+.mod-preview-title { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:.5rem; }
+.mod-chip {
+  display:flex; align-items:center; gap:6px;
+  padding:5px 8px; border-radius:7px;
+  background:var(--surface2); border:1px solid var(--border);
+  font-size:.75rem; margin-bottom:4px;
+}
+.mod-chip .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.beginner-dot   { background:#10B981; }
+.intermediate-dot { background:#F59E0B; }
+.advanced-dot   { background:#EF4444; }
+
+/* ── EXPLANATION SECTION ───────────────────────────────────── */
+.explain-section { margin-top:2rem; }
+.explain-card { padding:1.5rem; border-radius:14px; border:1px solid var(--border); background:var(--surface); margin-bottom:1rem; }
+.explain-icon { font-size:1.8rem; margin-bottom:.5rem; }
+.explain-title { font-size:1rem; font-weight:700; margin-bottom:.4rem; }
+.explain-body { font-size:.85rem; color:var(--text-dim); line-height:1.7; }
+.advantage-list { margin-top:.5rem; list-style:none; }
+.advantage-list li { font-size:.83rem; color:var(--text-dim); padding:3px 0; display:flex; gap:8px; }
+.advantage-list li::before { content:'→'; color:var(--accent); font-weight:700; }
+
+/* ── METRICS TAB ───────────────────────────────────────────── */
+.chart-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem; }
+.chart-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:1.5rem; }
+.chart-title { font-size:.9rem; font-weight:700; margin-bottom:1rem; }
+.chart-wrap  { position:relative; height:260px; }
+
+/* Full-width chart */
+.chart-card.full { grid-column:1/-1; }
+
+/* metric table */
+.metrics-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+.metrics-table th { padding:10px 14px; text-align:left; font-size:.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted);
+  border-bottom:2px solid var(--border); }
+.metrics-table td { padding:10px 14px; border-bottom:1px solid var(--border); }
+.metrics-table tr:last-child td { border-bottom:none; }
+.metrics-table .winner-row td { background:rgba(99,102,241,.06); }
+.metrics-table .winner-row td:first-child { border-left:3px solid var(--accent); }
+.pill { padding:2px 9px; border-radius:99px; font-size:.73rem; font-weight:700; }
+.pill-green  { background:rgba(16,185,129,.15); color:#10B981; }
+.pill-yellow { background:rgba(245,158,11,.15); color:#F59E0B; }
+.pill-red    { background:rgba(239,68,68,.15); color:#EF4444; }
+
+/* ── TRANSPARENCY TAB ──────────────────────────────────────── */
+.flow-wrap { display:flex; flex-direction:column; gap:0; }
+.flow-step {
+  display:grid; grid-template-columns:48px 1fr;
+  gap:0 1.25rem; position:relative;
+}
+.flow-step:not(:last-child)::before {
+  content:''; position:absolute; left:23px; top:48px;
+  width:2px; bottom:-20px; background:var(--border);
+}
+.flow-step:not(:last-child) { margin-bottom:20px; }
+.flow-num {
+  width:48px; height:48px; border-radius:50%;
+  background:var(--accent-glow); border:2px solid var(--accent);
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-head); font-size:1rem; font-weight:800;
+  color:var(--accent2); flex-shrink:0; z-index:1;
+}
+.flow-num.active { background:var(--accent); color:#fff; }
+.flow-content { padding-bottom:1rem; }
+.flow-header { display:flex; align-items:center; gap:10px; height:48px; }
+.flow-name { font-size:1rem; font-weight:700; }
+.flow-tag { font-size:.7rem; padding:2px 8px; border-radius:6px;
+  background:rgba(99,102,241,.12); color:var(--accent2); font-weight:700; }
+.flow-body { margin-top:.5rem; }
+.flow-desc { font-size:.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:.75rem; }
+.flow-panel {
+  border-radius:12px; background:var(--surface2); border:1px solid var(--border);
+  padding:1rem; font-size:.82rem;
+}
+.flow-panel-title { font-size:.7rem; font-weight:700; text-transform:uppercase;
+  letter-spacing:.08em; color:var(--text-muted); margin-bottom:.5rem; }
+.kv-row { display:flex; justify-content:space-between; align-items:center;
+  padding:4px 0; border-bottom:1px solid var(--border); font-size:.82rem; }
+.kv-row:last-child { border-bottom:none; }
+.kv-key { color:var(--text-muted); }
+.kv-val { font-weight:600; color:var(--text); }
+.sim-row { display:flex; align-items:center; gap:8px; padding:4px 0; }
+.sim-label { flex:1; font-size:.8rem; color:var(--text-dim); white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis; }
+.sim-pct { font-size:.8rem; font-weight:700; min-width:40px; text-align:right; }
+.sim-mini-bar { width:80px; height:4px; background:var(--border); border-radius:99px; flex-shrink:0; }
+.sim-mini-fill { height:4px; border-radius:99px; background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+.rule-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:3px 9px; border-radius:6px; font-size:.75rem; font-weight:600;
+  background:rgba(16,185,129,.1); color:var(--success); margin:2px;
+}
+.rule-chip.inactive { background:var(--surface); color:var(--text-muted); border:1px solid var(--border); }
+.mod-final-row { display:flex; align-items:center; gap:8px; padding:4px 0;
+  border-bottom:1px solid var(--border); font-size:.82rem; }
+.mod-final-row:last-child { border-bottom:none; }
+.mod-order { width:20px; height:20px; border-radius:50%; background:var(--accent);
+  color:#fff; font-size:.7rem; font-weight:700; display:flex; align-items:center;
+  justify-content:center; flex-shrink:0; }
+.mod-title-t { flex:1; color:var(--text-dim); }
+.step-toggle { cursor:pointer; user-select:none; }
+.step-toggle:hover .flow-name { color:var(--accent2); }
+.flow-body { overflow:hidden; transition:max-height .35s ease; }
+.flow-body.collapsed { max-height:0; }
+.flow-body.expanded  { max-height:2000px; }
+.toggle-icon { font-size:.8rem; color:var(--text-muted); transition:transform .3s; }
+.toggle-icon.open { transform:rotate(90deg); }
+
+/* ── NO PROFILE NOTICE ─────────────────────────────────────── */
+.no-profile-notice {
+  text-align:center; padding:4rem 2rem; border-radius:16px;
+  background:var(--surface); border:1px dashed var(--border);
+}
+
+/* ── RESPONSIVE ────────────────────────────────────────────── */
+@media(max-width:900px){
+  .cmp-grid { grid-template-columns:1fr; }
+  .chart-grid { grid-template-columns:1fr; }
+  .chart-card.full { grid-column:1; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="cmp-wrap">
+
+  <!-- HERO -->
+  <div class="cmp-hero">
+    <div class="hero-tag">🔬 Research Comparison</div>
+    <div class="hero-title">Recommendation System Benchmark</div>
+    <div class="hero-sub">
+      Three hybrid reasoning approaches are benchmarked head-to-head across six pedagogical and
+      computational metrics. Our primary <strong style="color:var(--accent2)">CBR → RBR</strong>
+      pipeline is compared against RBR → CBR and parallel execution to demonstrate its superiority
+      in personalisation, pedagogical quality and system confidence.
+    </div>
+    {% if profile %}
+    <div style="margin-top:1rem;font-size:.85rem;color:var(--text-muted);">
+      Running for:&nbsp;
+      <strong style="color:var(--text);">{{ profile.persona.replace('_',' ').title() }}</strong>
+      &nbsp;·&nbsp;<strong style="color:var(--text);">{{ profile.goal_domain.replace('_',' ').title() if profile.goal_domain else '—' }}</strong>
+      &nbsp;·&nbsp;<strong style="color:var(--text);">{{ profile.skill_level.title() }}</strong>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs-row">
+    <button class="tab-btn active" onclick="switchTab('comparison',this)">📊 Comparison</button>
+    <button class="tab-btn" onclick="switchTab('metrics',this)">📈 Metrics & Charts</button>
+    <button class="tab-btn" onclick="switchTab('transparency',this)">🔍 Transparency</button>
+  </div>
+
+  {% if not has_profile %}
+  <div class="no-profile-notice">
+    <div style="font-size:3rem;margin-bottom:1rem;">🔒</div>
+    <h3>Profile Required</h3>
+    <p style="margin-top:.5rem;">Complete your learner profile and quiz to run the system comparison.</p>
+    <a href="{{ url_for('profile.create_profile') }}" class="run-btn" style="display:inline-block;margin-top:1.25rem;text-decoration:none;">
+      Set Up Profile →
+    </a>
+  </div>
+  {% else %}
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!--  TAB 1: COMPARISON                                       -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="tab-comparison" class="tab-pane active">
+
+    <div class="run-area">
+      <button class="run-btn" id="runBtn" onclick="runComparison()">
+        ▶ Run System Comparison
+      </button>
+      <div class="inline-spinner" id="spinner">
+        <div class="spin"></div>
+        <span id="spinnerText">Initialising pipelines…</span>
+      </div>
+    </div>
+
+    <!-- System cards populated by JS -->
+    <div class="cmp-grid" id="cmpGrid" style="display:none;"></div>
+
+    <!-- Explanation always visible -->
+    <div class="explain-section">
+      <h3 style="margin-bottom:1rem;">Why CBR → RBR Wins</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;">
+
+        <div class="explain-card">
+          <div class="explain-icon"></div>
+          <div class="explain-title" style="color:var(--accent2);">CBR → RBR (Our System)</div>
+          <div class="explain-body">
+            CBR first retrieves cases from real learners who succeeded in similar goals.
+            RBR then applies pedagogical rules <em>on that targeted subset</em> — so
+            rules refine an already-personalised candidate set.
+          </div>
+          <ul class="advantage-list">
+            <li>Uses proven human learning paths</li>
+            <li>Rules applied to relevant modules only</li>
+            <li>Higher BERT semantic alignment</li>
+            <li>Fastest: processes small candidate set</li>
+          </ul>
+        </div>
+
+        <div class="explain-card">
+          <div class="explain-icon"></div>
+          <div class="explain-title" style="color:var(--warning);">RBR → CBR</div>
+          <div class="explain-body">
+            Rules fire first on the <em>entire</em> module pool without any personalisation signal.
+            CBR then tries to re-rank an already rule-filtered set — but loses the
+            case-based context that makes retrieval meaningful.
+          </div>
+          <ul class="advantage-list">
+            <li>Rules are generic — no learner context</li>
+            <li>CBR retrieval is diluted after filtering</li>
+            <li>Slower: RBR processes all modules</li>
+            <li>Lower personalisation alignment</li>
+          </ul>
+        </div>
+
+        <div class="explain-card">
+          <div class="explain-icon">⚡</div>
+          <div class="explain-title" style="color:var(--error);">CBR ∥ RBR (Parallel)</div>
+          <div class="explain-body">
+            Both pipelines run independently and merge their outputs.
+            The merger introduces incoherence — CBR and RBR modules may
+            contradict each other in difficulty ordering and style.
+          </div>
+          <ul class="advantage-list">
+            <li>Merge creates difficulty-ordering conflicts</li>
+            <li>Lower coherence and pedagogical score</li>
+            <li>Slowest: two full passes + merge cost</li>
+            <li>Confidence drops — two conflicting signals</li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Literature reference box -->
+      <div style="margin-top:1.25rem;padding:1.25rem;border-radius:14px;
+                  background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);">
+        <div style="font-size:.78rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:.08em;color:var(--accent2);margin-bottom:.5rem;">
+          📖 Supporting Literature
+        </div>
+        <div style="font-size:.83rem;color:var(--text-dim);line-height:1.7;">
+          <strong style="color:var(--text);">Aamodt & Plaza (1994)</strong> established that CBR's strength lies in
+          retrieving contextually similar past solutions <em>before</em> adaptation — directly supporting
+          our CBR→RBR ordering.<br>
+          <strong style="color:var(--text);">Watson (1997)</strong> demonstrated that case retrieval provides
+          the most personalised starting point, with rules as a secondary refinement mechanism.<br>
+          <strong style="color:var(--text);">Kolodner (1993)</strong> showed that rule-first approaches sacrifice
+          user-specificity because rules encode population-level knowledge, not individual similarity.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!--  TAB 2: METRICS & CHARTS                                 -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="tab-metrics" class="tab-pane">
+
+    <div class="run-area" style="margin-bottom:1.25rem;">
+      <button class="run-btn" id="runBtn2" onclick="runComparison()">▶ Run Analysis</button>
+    </div>
+
+    <div id="metricsContent" style="display:none;">
+
+      <!-- Metric Table -->
+      <div class="chart-card" style="margin-bottom:1.5rem;">
+        <div class="chart-title">📋 Full Metrics Table</div>
+        <table class="metrics-table" id="metricsTable">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>CBR → RBR</th>
+              <th>RBR → CBR</th>
+              <th>CBR ∥ RBR</th>
+            </tr>
+          </thead>
+          <tbody id="metricsTableBody"></tbody>
+        </table>
+      </div>
+
+      <div class="chart-grid">
+        <!-- Radar -->
+        <div class="chart-card">
+          <div class="chart-title">🕸️ Multi-Metric Radar</div>
+          <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+        </div>
+
+        <!-- Overall bar -->
+        <div class="chart-card">
+          <div class="chart-title">🏆 Overall Score Comparison</div>
+          <div class="chart-wrap"><canvas id="overallBar"></canvas></div>
+        </div>
+
+        <!-- Response time -->
+        <div class="chart-card">
+          <div class="chart-title"> Response Time (ms) — lower is better</div>
+          <div class="chart-wrap"><canvas id="rtChart"></canvas></div>
+        </div>
+
+        <!-- Pedagogical + Personalisation grouped bar -->
+        <div class="chart-card">
+          <div class="chart-title"> Pedagogical vs Personalisation</div>
+          <div class="chart-wrap"><canvas id="pgChart"></canvas></div>
+        </div>
+
+        <!-- Confidence + Coverage pie-style doughnut -->
+        <div class="chart-card">
+          <div class="chart-title"> Confidence Score Breakdown</div>
+          <div class="chart-wrap"><canvas id="confChart"></canvas></div>
+        </div>
+
+        <!-- Diversity + Coherence -->
+        <div class="chart-card">
+          <div class="chart-title"> Diversity & Coherence</div>
+          <div class="chart-wrap"><canvas id="divChart"></canvas></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════ -->
+  <!--  TAB 3: TRANSPARENCY                                     -->
+  <!-- ════════════════════════════════════════════════════════ -->
+  <div id="tab-transparency" class="tab-pane">
+
+    <div class="run-area" style="margin-bottom:1.25rem;">
+      <button class="run-btn" id="runBtn3" onclick="runTransparency()">🔍 Trace System Execution</button>
+      <div class="inline-spinner" id="spinner3">
+        <div class="spin"></div>
+        <span>Tracing pipeline…</span>
+      </div>
+    </div>
+
+    <div id="transparencyContent" style="display:none;">
+
+      <!-- Profile snapshot -->
+      <div class="chart-card" style="margin-bottom:1.5rem;" id="profileSnapshot"></div>
+
+      <!-- Step-by-step flowchart -->
+      <h3 style="margin-bottom:1.25rem;">🔄 Step-by-Step Pipeline Trace</h3>
+      <div class="flow-wrap" id="flowWrap"></div>
+
+    </div>
+  </div>
+
+  {% endif %}
+</div><!-- /cmp-wrap -->
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── GLOBALS ──────────────────────────────────────────────────────────────
+let comparisonData = null;
+let charts = {};
+
+const COLORS = {
+  cbr_rbr:  { border:'#6366F1', bg:'rgba(99,102,241,.18)'  },
+  rbr_cbr:  { border:'#F59E0B', bg:'rgba(245,158,11,.18)'  },
+  parallel: { border:'#EF4444', bg:'rgba(239,68,68,.18)'   },
+};
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── SPINNER HELPERS ───────────────────────────────────────────────────────
+function showSpinner(id, text) {
+  const s = document.getElementById(id);
+  if (s) { s.style.display = 'flex'; if (text) s.querySelector('span').textContent = text; }
+}
+function hideSpinner(id) {
+  const s = document.getElementById(id);
+  if (s) s.style.display = 'none';
+}
+function setBtn(id, disabled) {
+  const b = document.getElementById(id);
+  if (b) b.disabled = disabled;
+}
+
+// ── METRIC COLOUR ─────────────────────────────────────────────────────────
+function metricColor(val) {
+  if (val >= 75) return '#10B981';
+  if (val >= 55) return '#F59E0B';
+  return '#EF4444';
+}
+function rtColor(ms) {
+  if (ms < 15)  return '#10B981';
+  if (ms < 30)  return '#F59E0B';
+  return '#EF4444';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RUN COMPARISON
+// ══════════════════════════════════════════════════════════════════════════
+async function runComparison() {
+  ['runBtn','runBtn2'].forEach(id => setBtn(id, true));
+  showSpinner('spinner', 'Encoding learning goal with BERT…');
+
+  const steps = [
+    'Encoding learning goal with BERT…',
+    'Running CBR → RBR pipeline…',
+    'Running RBR → CBR pipeline…',
+    'Running Parallel pipeline…',
+    'Computing metrics…',
+    'Building charts…',
+  ];
+  let si = 0;
+  const sInt = setInterval(() => {
+    si = (si + 1) % steps.length;
+    const s = document.getElementById('spinner');
+    if (s) s.querySelector('span').textContent = steps[si];
+  }, 900);
+
+  try {
+    const res = await fetch('/compare/api/run');
+    const data = await res.json();
+    clearInterval(sInt);
+
+    if (data.error) { alert('Error: ' + data.error); return; }
+
+    comparisonData = data;
+    renderComparison(data);
+    renderMetrics(data);
+
+    document.getElementById('cmpGrid').style.display = 'grid';
+    document.getElementById('metricsContent').style.display = 'block';
+
+  } catch(e) {
+    clearInterval(sInt);
+    alert('Failed to run comparison: ' + e.message);
+  } finally {
+    hideSpinner('spinner');
+    ['runBtn','runBtn2'].forEach(id => setBtn(id, false));
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RENDER COMPARISON CARDS
+// ══════════════════════════════════════════════════════════════════════════
+function renderComparison(data) {
+  const grid  = document.getElementById('cmpGrid');
+  const order = ['cbr_rbr','rbr_cbr','parallel'];
+  const descs = {
+    cbr_rbr:  'CBR retrieves similar learner cases → RBR refines with pedagogical rules. Start personalised, stay pedagogically sound.',
+    rbr_cbr:  'Rules filter the full module pool first → CBR re-ranks. Generic start loses personalisation signal.',
+    parallel: 'CBR and RBR run simultaneously → outputs merged. Two conflicting signals reduce coherence.',
+  };
+  const rtRanks = ['cbr_rbr','rbr_cbr','parallel']
+    .sort((a,b) => data.systems[a].metrics.response_time_ms - data.systems[b].metrics.response_time_ms);
+
+  grid.innerHTML = order.map(key => {
+    const sys = data.systems[key];
+    const m   = sys.metrics;
+    const isWinner = data.winner === key;
+    const rtRank   = rtRanks.indexOf(key);
+    const rtClass  = rtRank === 0 ? '' : rtRank === 1 ? 'slow' : 'slowest';
+    const rtLabel  = rtRank === 0 ? '⚡ Fastest' : rtRank === 1 ? '⏱ Moderate' : '🐢 Slowest';
+    const overall  = m.overall_score || 0;
+    const pct      = Math.round(overall);
+
+    const metricRows = [
+      ['Personalisation', m.personalisation_score],
+      ['Pedagogical',     m.pedagogical_score],
+      ['Confidence',      m.confidence_score],
+      ['Coverage',        m.coverage_score],
+      ['Coherence',       m.coherence_score],
+      ['Diversity',       m.diversity_score],
+    ].map(([name, val]) => `
+      <div class="metric-row">
+        <div class="metric-label-row">
+          <span class="metric-name">${name}</span>
+          <span class="metric-val" style="color:${metricColor(val)}">${Math.round(val)}%</span>
+        </div>
+        <div class="metric-bar-wrap">
+          <div class="metric-bar" style="width:${val}%;background:${metricColor(val)};"></div>
+        </div>
+      </div>`).join('');
+
+    const modChips = (sys.modules || []).slice(0, 4).map(mod => `
+      <div class="mod-chip">
+        <span class="dot ${mod.difficulty}-dot"></span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${mod.title}</span>
+        <span style="color:var(--text-muted);font-size:.7rem;">${mod.module_type}</span>
+      </div>`).join('');
+
+    return `
+    <div class="sys-card ${isWinner ? 'winner' : ''}">
+      <div class="sys-header">
+        <div class="sys-label">${isWinner ? '★ Recommended' : 'Alternative'}</div>
+        <div class="sys-name">${sys.label}</div>
+        <div class="sys-desc">${descs[key]}</div>
+      </div>
+      <div class="sys-body">
+        <div style="text-align:center;">
+          <div class="score-circle" style="--pct:${pct * 3.6}deg">
+            <div class="score-inner">
+              <div class="score-num" style="color:${metricColor(overall)}">${pct}</div>
+              <div class="score-unit">OVERALL</div>
+            </div>
+          </div>
+        </div>
+        <div class="rt-badge ${rtClass}" style="margin:0 auto .75rem;display:flex;width:fit-content;">
+          ${rtLabel} &nbsp; ${m.response_time_ms}ms
+        </div>
+        ${metricRows}
+        <div class="mod-preview">
+          <div class="mod-preview-title">Sample Modules</div>
+          ${modChips}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  RENDER METRICS TAB
+// ══════════════════════════════════════════════════════════════════════════
+function renderMetrics(data) {
+  const systems  = ['cbr_rbr','rbr_cbr','parallel'];
+  const labels   = ['CBR → RBR','RBR → CBR','CBR ∥ RBR'];
+  const metrics  = [
+    {key:'overall_score',         label:'Overall Score'},
+    {key:'personalisation_score', label:'Personalisation'},
+    {key:'pedagogical_score',     label:'Pedagogical'},
+    {key:'confidence_score',      label:'Confidence'},
+    {key:'coverage_score',        label:'Coverage'},
+    {key:'coherence_score',       label:'Coherence'},
+    {key:'diversity_score',       label:'Diversity'},
+    {key:'response_time_ms',      label:'Response Time (ms)'},
+    {key:'modules_count',         label:'Modules Generated'},
+    {key:'cbr_cases_used',        label:'CBR Cases Used'},
+    {key:'rules_applied_count',   label:'Rules Applied'},
+  ];
+
+  // ── Table ───────────────────────────────────────────────────────────────
+  const tbody = document.getElementById('metricsTableBody');
+  tbody.innerHTML = metrics.map(({key, label}) => {
+    const vals = systems.map(s => data.systems[s]?.metrics?.[key] ?? 0);
+    const best = key === 'response_time_ms' ? Math.min(...vals) : Math.max(...vals);
+    const cells = systems.map((s, i) => {
+      const v = vals[i];
+      const isBest = v === best;
+      const isScore = !['response_time_ms','modules_count','cbr_cases_used','rules_applied_count'].includes(key);
+      const pillClass = isScore
+        ? (v >= 75 ? 'pill-green' : v >= 55 ? 'pill-yellow' : 'pill-red')
+        : (isBest ? 'pill-green' : 'pill-yellow');
+      const display = isScore ? Math.round(v) + '%' : (Number.isInteger(v) ? v : v.toFixed(1));
+      return `<td class="${s === 'cbr_rbr' ? 'winner-row' : ''}">
+        <span class="pill ${pillClass}">${isBest ? '★ ' : ''}${display}</span></td>`;
+    }).join('');
+    return `<tr ${key === 'overall_score' ? 'style="font-weight:700;"' : ''}>
+      <td style="font-weight:600;color:var(--text-dim);">${label}</td>${cells}</tr>`;
+  }).join('');
+
+  // ── Destroy old charts ──────────────────────────────────────────────────
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+
+  const cs = [
+    'rgba(99,102,241,1)','rgba(245,158,11,1)','rgba(239,68,68,1)'
+  ];
+  const cbg = [
+    'rgba(99,102,241,.2)','rgba(245,158,11,.2)','rgba(239,68,68,.2)'
+  ];
+  const get = (key) => systems.map(s => Math.round(data.systems[s]?.metrics?.[key] ?? 0));
+
+  const defOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#94A3B8',font:{family:'DM Sans',size:12}}}},
+    scales:{
+      x:{ticks:{color:'#64748B'},grid:{color:'rgba(255,255,255,.04)'}},
+      y:{ticks:{color:'#64748B'},grid:{color:'rgba(255,255,255,.04)'}},
+    }
+  };
+
+  // Radar
+  const radarMetrics = ['Personalisation','Pedagogical','Confidence','Coverage','Coherence','Diversity'];
+  const radarKeys    = ['personalisation_score','pedagogical_score','confidence_score','coverage_score','coherence_score','diversity_score'];
+  charts.radar = new Chart(document.getElementById('radarChart'), {
+    type:'radar',
+    data:{
+      labels: radarMetrics,
+      datasets: systems.map((s,i) => ({
+        label: labels[i],
+        data: radarKeys.map(k => Math.round(data.systems[s]?.metrics?.[k] ?? 0)),
+        borderColor: cs[i], backgroundColor: cbg[i], pointBackgroundColor: cs[i], borderWidth:2,
+      }))
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#94A3B8'}}},
+      scales:{r:{
+        ticks:{color:'#64748B',backdropColor:'transparent',stepSize:20},
+        grid:{color:'rgba(255,255,255,.08)'},
+        angleLines:{color:'rgba(255,255,255,.08)'},
+        pointLabels:{color:'#94A3B8',font:{size:12}},
+        min:0,max:100,
+      }}
+    }
+  });
+
+  // Overall bar
+  charts.overall = new Chart(document.getElementById('overallBar'), {
+    type:'bar',
+    data:{labels,
+      datasets:[{label:'Overall Score (%)',
+        data: get('overall_score'),
+        backgroundColor:cbg, borderColor:cs, borderWidth:2, borderRadius:8,
+      }]
+    },
+    options:{...defOpts, plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:100,...defOpts.scales.y},x:{...defOpts.scales.x}}}
+  });
+
+  // Response time
+  charts.rt = new Chart(document.getElementById('rtChart'), {
+    type:'bar',
+    data:{labels,
+      datasets:[{label:'Response Time (ms)',
+        data: systems.map(s => data.systems[s]?.metrics?.response_time_ms ?? 0),
+        backgroundColor:['rgba(16,185,129,.25)','rgba(245,158,11,.25)','rgba(239,68,68,.25)'],
+        borderColor:['#10B981','#F59E0B','#EF4444'],
+        borderWidth:2, borderRadius:8,
+      }]
+    },
+    options:{...defOpts, plugins:{legend:{display:false}},
+      scales:{y:{min:0,...defOpts.scales.y},x:{...defOpts.scales.x}}}
+  });
+
+  // Ped + Personal grouped
+  charts.pg = new Chart(document.getElementById('pgChart'), {
+    type:'bar',
+    data:{labels,
+      datasets:[
+        {label:'Pedagogical (%)',     data:get('pedagogical_score'),     backgroundColor:cbg[0],borderColor:cs[0],borderWidth:2,borderRadius:6},
+        {label:'Personalisation (%)', data:get('personalisation_score'), backgroundColor:'rgba(16,184,166,.2)',borderColor:'#2DD4BF',borderWidth:2,borderRadius:6},
+      ]
+    },
+    options:{...defOpts, scales:{y:{min:0,max:100,...defOpts.scales.y},x:{...defOpts.scales.x}}}
+  });
+
+  // Confidence doughnut per system
+  charts.conf = new Chart(document.getElementById('confChart'), {
+    type:'bar',
+    data:{labels,
+      datasets:[{label:'Confidence (%)',
+        data: get('confidence_score'),
+        backgroundColor:cbg, borderColor:cs, borderWidth:2, borderRadius:8,
+      }]
+    },
+    options:{...defOpts, plugins:{legend:{display:false}},
+      scales:{y:{min:0,max:100,...defOpts.scales.y},x:{...defOpts.scales.x}}}
+  });
+
+  // Diversity + Coherence
+  charts.div = new Chart(document.getElementById('divChart'), {
+    type:'bar',
+    data:{labels,
+      datasets:[
+        {label:'Diversity (%)',  data:get('diversity_score'),  backgroundColor:'rgba(168,85,247,.25)',borderColor:'#C084FC',borderWidth:2,borderRadius:6},
+        {label:'Coherence (%)', data:get('coherence_score'),  backgroundColor:'rgba(251,146,60,.25)',borderColor:'#FB923C',borderWidth:2,borderRadius:6},
+      ]
+    },
+    options:{...defOpts, scales:{y:{min:0,max:100,...defOpts.scales.y},x:{...defOpts.scales.x}}}
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  TRANSPARENCY TAB
+// ══════════════════════════════════════════════════════════════════════════
+async function runTransparency() {
+  setBtn('runBtn3', true);
+  showSpinner('spinner3');
+
+  try {
+    const res  = await fetch('/compare/api/transparency');
+    const data = await res.json();
+
+    if (data.error) { alert('Error: ' + data.error); return; }
+    renderTransparency(data);
+    document.getElementById('transparencyContent').style.display = 'block';
+
+  } catch(e) {
+    alert('Failed: ' + e.message);
+  } finally {
+    hideSpinner('spinner3');
+    setBtn('runBtn3', false);
+  }
+}
+
+function renderTransparency(data) {
+  // Profile snapshot
+  const p = data.profile;
+  document.getElementById('profileSnapshot').innerHTML = `
+    <div class="chart-title">👤 Learner Profile Snapshot</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-top:.5rem;">
+      ${[['Goal',p.goal.slice(0,55)+'…'],['Domain',p.domain.replace(/_/g,' ')],
+         ['Persona',p.persona.replace(/_/g,' ')],['Skill',p.skill],
+         ['Style',p.style],['Memory',p.memory],['Background',p.background],['Quiz',p.quiz_score+'%']
+        ].map(([k,v])=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:.75rem;">
+          <div style="font-size:.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;">${k}</div>
+          <div style="font-weight:700;font-size:.88rem;margin-top:3px;color:var(--text);">${v}</div>
+        </div>`).join('')}
+    </div>`;
+
+  // Flowchart
+  const wrap = document.getElementById('flowWrap');
+  wrap.innerHTML = data.steps.map((step, idx) => buildFlowStep(step, idx)).join('');
+}
+
+function buildFlowStep(step, idx) {
+  let panelHTML = '';
+
+  if (step.step === 1) {
+    // BERT encoding
+    panelHTML = `
+      <div class="flow-panel">
+        <div class="flow-panel-title">Input → Output</div>
+        <div class="kv-row"><span class="kv-key">Input Goal</span><span class="kv-val" style="max-width:300px;text-align:right;font-size:.8rem;">"${(step.input||'').slice(0,60)}…"</span></div>
+        <div class="kv-row"><span class="kv-key">Classified Domain</span><span class="kv-val" style="color:var(--accent2);">${step.output.domain_classified.replace(/_/g,' ')}</span></div>
+        <div class="kv-row"><span class="kv-key">Embedding Dimensions</span><span class="kv-val">${step.output.embedding_dims}D vector</span></div>
+        <div class="kv-row"><span class="kv-key">Embedding Preview</span><span class="kv-val" style="font-size:.75rem;font-family:monospace;">[${(step.output.embedding_preview||[]).map(v=>v.toFixed(3)).join(', ')}…]</span></div>
+      </div>`;
+  } else if (step.step === 2) {
+    // Similarity computation
+    const cases = (step.top_cases || []).slice(0, 5);
+    panelHTML = `
+      <div class="flow-panel">
+        <div class="flow-panel-title">Formula: ${step.formula}</div>
+        <div style="margin:.5rem 0;font-size:.78rem;color:var(--text-muted);">${step.cases_evaluated} cases evaluated. Top 5 shown:</div>
+        ${cases.map(c=>`
+          <div class="sim-row">
+            <span class="sim-label" title="${c.goal}">${c.goal.slice(0,40)}… (${c.skill})</span>
+            <div class="sim-mini-bar"><div class="sim-mini-fill" style="width:${c.total_sim}%"></div></div>
+            <span class="sim-pct" style="color:${metricColor(c.total_sim)}">${c.total_sim}%</span>
+          </div>
+          <div style="font-size:.74rem;color:var(--text-muted);padding:2px 0 6px 0;border-bottom:1px solid var(--border);">
+            Feature: ${c.feat_sim}% &nbsp;|&nbsp; BERT: ${c.bert_sim}%
+            &nbsp;|&nbsp; ${Object.entries(c.breakdown||{}).map(([k,v])=>`${k.replace('_score','').replace('_',' ')}:${v}%`).join(' · ')}
+          </div>
+        `).join('')}
+      </div>`;
+  } else if (step.step === 3) {
+    // CBR retrieval
+    const retrieved = step.retrieved_cases || [];
+    const candidates = step.candidate_modules || [];
+    panelHTML = `
+      <div class="flow-panel" style="margin-bottom:.75rem;">
+        <div class="flow-panel-title">Retrieved Cases (Top-${step.top_k})</div>
+        ${retrieved.map(c=>`
+          <div class="kv-row">
+            <span class="kv-key">"${(c.goal||'').slice(0,40)}…" (${c.skill})</span>
+            <span class="kv-val" style="color:var(--accent2);">${c.sim}% match</span>
+          </div>`).join('')}
+      </div>
+      <div class="flow-panel">
+        <div class="flow-panel-title">Candidate Modules (${step.candidate_modules_count} total, top 6 shown)</div>
+        ${candidates.slice(0,6).map((m,i)=>`
+          <div class="mod-final-row">
+            <div class="mod-order">${i+1}</div>
+            <span class="mod-title-t">${m.title.slice(0,50)}</span>
+            <span class="pill ${m.difficulty==='beginner'?'pill-green':m.difficulty==='advanced'?'pill-red':'pill-yellow'}">${m.difficulty}</span>
+            <span style="font-size:.75rem;color:var(--text-muted);">p=${m.priority}</span>
+          </div>`).join('')}
+      </div>`;
+  } else if (step.step === 4) {
+    // RBR rules
+    const fired    = step.rules_fired     || [];
+    const notFired = step.rules_not_fired || [];
+    panelHTML = `
+      <div class="flow-panel" style="margin-bottom:.75rem;">
+        <div class="flow-panel-title">Rules Fired (${fired.length}/${step.rules_evaluated})</div>
+        <div style="margin-top:.25rem;">
+          ${fired.map(r=>`<span class="rule-chip" title="${r.description}">${r.name.replace(/_/g,' ')}</span>`).join('')}
+          ${fired.length === 0 ? '<span style="color:var(--text-muted);font-size:.82rem;">No rules fired</span>' : ''}
+        </div>
+      </div>
+      <div class="flow-panel">
+        <div class="flow-panel-title">Rules Not Fired (${notFired.length})</div>
+        <div style="margin-top:.25rem;">
+          ${notFired.slice(0,6).map(r=>`<span class="rule-chip inactive" title="${r.description}">${r.name.replace(/_/g,' ')}</span>`).join('')}
+        </div>
+        <div class="kv-row" style="margin-top:.5rem;">
+          <span class="kv-key">Modules before RBR</span><span class="kv-val">${step.modules_before}</span>
+        </div>
+        <div class="kv-row">
+          <span class="kv-key">Modules after RBR</span><span class="kv-val" style="color:var(--success);">${step.modules_after}</span>
+        </div>
+      </div>`;
+  } else if (step.step === 5) {
+    // Final path
+    const mods = step.final_modules || [];
+    panelHTML = `
+      <div class="flow-panel">
+        <div class="flow-panel-title">Final Learning Path — ${step.total_modules} modules · ${step.total_hours}h</div>
+        ${mods.map(m=>`
+          <div class="mod-final-row">
+            <div class="mod-order">${m.order}</div>
+            <span class="mod-title-t">${m.title.slice(0,52)}</span>
+            <span class="pill ${m.difficulty==='beginner'?'pill-green':m.difficulty==='advanced'?'pill-red':'pill-yellow'}">${m.difficulty}</span>
+            <span style="font-size:.74rem;color:var(--text-muted);">${m.type} · ${m.duration}min</span>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  return `
+    <div class="flow-step">
+      <div class="flow-num ${idx === 0 ? 'active' : ''}">${step.step}</div>
+      <div class="flow-content">
+        <div class="flow-header step-toggle" onclick="toggleStep(${idx})">
+          <div class="flow-name">${step.name}</div>
+          <span class="flow-tag">${['NLP','CBR Compute','CBR Retrieve','RBR Refine','Output'][idx] || ''}</span>
+          <span class="toggle-icon open" id="ticon-${idx}">▶</span>
+        </div>
+        <div class="flow-body expanded" id="fbody-${idx}">
+          <p class="flow-desc">${step.description}</p>
+          ${panelHTML}
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleStep(idx) {
+  const body  = document.getElementById('fbody-' + idx);
+  const icon  = document.getElementById('ticon-' + idx);
+  const num   = document.querySelectorAll('.flow-num')[idx];
+  const expanded = body.classList.contains('expanded');
+  body.classList.toggle('expanded', !expanded);
+  body.classList.toggle('collapsed', expanded);
+  icon.classList.toggle('open', !expanded);
+  if (num) num.classList.toggle('active', !expanded);
+}
+</script>
+{% endblock %}

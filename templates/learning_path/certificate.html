@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Certificate of Completion{% endblock %}
+
+{% block extra_head %}
+<style>
+.cert-wrap { max-width: 700px; margin: 0 auto; padding: 2rem; text-align: center; }
+.cert-trophy { font-size: 5rem; margin-bottom: 1.5rem; animation: bounce 0.6s ease; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-20px)} }
+.cert-card {
+  padding: 3rem; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(99,102,241,0.12), rgba(99,102,241,0.03));
+  border: 2px solid rgba(99,102,241,0.4);
+  position: relative; overflow: hidden;
+}
+.cert-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at top, rgba(99,102,241,0.08), transparent 60%);
+  pointer-events: none;
+}
+.cert-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 18px; border-radius: 99px;
+  background: rgba(16,185,129,0.15); border: 1px solid var(--success);
+  color: var(--success); font-size: 0.82rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1.5rem;
+}
+.cert-by    { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 4px; }
+.cert-name  { font-size: 2.5rem; font-weight: 800; font-family: var(--font-head); color: var(--text); }
+.cert-has   { color: var(--text-muted); font-size: 0.9rem; margin: 1rem 0 4px; }
+.cert-path  { font-size: 1.3rem; font-weight: 700; color: var(--accent2); margin-bottom: 1.5rem; }
+.cert-id    { font-size: 0.78rem; color: var(--text-muted); margin-top: 1.5rem; }
+.confetti   { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+.action-row { display: flex; justify-content: center; gap: 12px; margin-top: 2rem; flex-wrap: wrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<canvas class="confetti" id="confettiCanvas"></canvas>
+<div class="cert-wrap" style="position:relative;z-index:1;">
+  <div class="cert-trophy">🏆</div>
+
+  <div class="cert-card">
+    <div class="cert-badge">✦ Certificate of Completion ✦</div>
+    <div class="cert-by">This certifies that</div>
+    <div class="cert-name">{{ user.full_name or user.username }}</div>
+    <div class="cert-has">has successfully completed</div>
+    <div class="cert-path">{{ path.title }}</div>
+
+    <div class="divider"></div>
+
+    <div style="display:flex;justify-content:center;gap:2rem;flex-wrap:wrap;margin:1rem 0;font-size:0.875rem;">
+      <div><span style="color:var(--text-muted);">Completed</span><br>
+        <strong>{{ path.completed_at.strftime('%B %d, %Y') if path.completed_at else 'Today' }}</strong></div>
+      <div><span style="color:var(--text-muted);">Modules</span><br>
+        <strong>{{ path.total_modules }}</strong></div>
+      <div><span style="color:var(--text-muted);">Domain</span><br>
+        <strong>{{ path.domain.replace('_',' ').title() if path.domain else 'N/A' }}</strong></div>
+    </div>
+
+    {% if cert_id %}
+    <div class="cert-id">Certificate ID: <strong>{{ cert_id }}</strong> · PathWise Learning Platform</div>
+    {% endif %}
+  </div>
+
+  <div class="action-row">
+    {% if path.certificate_path %}
+    <a href="{{ url_for('static', filename='certificates/' + path.certificate_path) }}"
+       target="_blank" class="btn btn-primary btn-lg">📄 Download PDF Certificate</a>
+    {% endif %}
+    <a href="{{ url_for('dashboard.home') }}" class="btn btn-secondary btn-lg">Go to Dashboard</a>
+    <a href="{{ url_for('learning_path.generate') }}" class="btn btn-secondary btn-lg">Start New Path</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Confetti animation
+const canvas = document.getElementById('confettiCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const colors = ['#6366F1','#818CF8','#10B981','#F59E0B','#EC4899','#2DD4BF'];
+const particles = Array.from({length: 120}, () => ({
+  x: Math.random() * canvas.width,
+  y: Math.random() * -canvas.height,
+  r: Math.random() * 7 + 3,
+  d: Math.random() * 60 + 30,
+  color: colors[Math.floor(Math.random() * colors.length)],
+  tilt: Math.random() * 10 - 10,
+  tiltIncrementalFactor: Math.random() * 0.07 + 0.05,
+  angle: 0, vx: (Math.random() - 0.5) * 2
+}));
+
+let angle = 0, frame = 0;
+function drawConfetti() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  angle += 0.01;
+  particles.forEach(p => {
+    p.tilt = Math.sin(angle + p.d) * 15;
+    p.y += (Math.cos(angle + p.d) + p.r / 2) * 1.5;
+    p.x += p.vx;
+    if (p.y > canvas.height) { p.y = -10; p.x = Math.random() * canvas.width; }
+    ctx.beginPath();
+    ctx.fillStyle = p.color;
+    ctx.ellipse(p.x + p.tilt, p.y, p.r/2, p.r, p.angle, 0, Math.PI*2);
+    ctx.fill();
+  });
+  frame++;
+  if (frame < 300) requestAnimationFrame(drawConfetti);
+  else ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+drawConfetti();
+</script>
+{% endblock %}

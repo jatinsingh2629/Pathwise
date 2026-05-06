@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ module.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.module-wrap { max-width: 800px; margin: 0 auto; padding: 2rem; }
+.module-hero { padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border); margin-bottom: 2rem; background: var(--surface); }
+.module-content { padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); margin-bottom: 2rem; }
+.content-placeholder {
+  border-radius: var(--radius); background: var(--surface2); border: 2px dashed var(--border);
+  padding: 3rem; text-align: center; color: var(--text-muted);
+}
+.content-type-icon { font-size: 3rem; margin-bottom: 1rem; }
+.assessment-section { margin-top: 2rem; }
+.assess-title { font-size: 1rem; font-weight: 700; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 8px; }
+.assess-question { margin-bottom: 1.25rem; padding: 1.25rem; border-radius: var(--radius); background: var(--surface2); border: 1px solid var(--border); }
+.assess-q-text { font-weight: 600; font-size: 0.9rem; color: var(--text); margin-bottom: 12px; }
+.assess-options { display: flex; flex-direction: column; gap: 8px; }
+.assess-opt input[type="radio"] { display: none; }
+.assess-opt label {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  cursor: pointer; transition: all var(--transition); font-size: 0.875rem;
+}
+.assess-opt label:hover { border-color: var(--accent2); background: var(--accent-glow); }
+.assess-opt input:checked + label { border-color: var(--accent); background: var(--accent-glow); }
+.opt-letter {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--border); font-size: 0.72rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--text-muted);
+}
+.assess-opt input:checked + label .opt-letter { background: var(--accent); color: #fff; }
+.completed-state { text-align: center; padding: 2rem; color: var(--success); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="module-wrap">
+  <!-- Breadcrumb -->
+  <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.5rem;">
+    <a href="{{ url_for('learning_path.view_path', path_id=path.id) }}" style="color:var(--accent2);">← {{ path.title }}</a>
+    &nbsp;/&nbsp; Module {{ pm.order_index + 1 }}
+  </div>
+
+  <!-- Module Hero -->
+  <div class="module-hero">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <span class="badge badge-{{ module.module_type or 'mixed' }}">{{ module.module_type or 'mixed' }}</span>
+      <span class="badge badge-{{ module.difficulty or 'intermediate' }}">{{ module.difficulty or 'intermediate' }}</span>
+      <span style="font-size:0.8rem;color:var(--text-muted);display:flex;align-items:center;">⏱ {{ module.duration_min or 60 }} min</span>
+    </div>
+    <h2>{{ module.title }}</h2>
+    <p style="margin-top:8px;font-size:0.9rem;">{{ module.description or 'Complete this module to progress in your learning path.' }}</p>
+  </div>
+
+  {% if pm.is_completed %}
+  <div class="card completed-state">
+    <div style="font-size:2.5rem;">✅</div>
+    <h3 style="color:var(--success);margin-top:8px;">Module Completed!</h3>
+    <p class="mt-1">Score: <strong>{{ pm.assessment_score|round|int if pm.assessment_score else 'N/A' }}%</strong></p>
+    <a href="{{ url_for('learning_path.view_path', path_id=path.id) }}" class="btn btn-primary mt-3">Back to Path →</a>
+  </div>
+  {% else %}
+
+  <!-- Content Area -->
+  <div class="module-content">
+    <h3 style="margin-bottom:1rem;">📖 Module Content</h3>
+    <div class="content-placeholder">
+      {% set icons = {'video': '▶️', 'labs': '🔬', 'project': '🚀', 'theory': '📖', 'reading': '📄', 'quiz': '❓', 'mixed': '🎨'} %}
+      <div class="content-type-icon">{{ icons.get(module.module_type, '📚') }}</div>
+      <h4 style="color:var(--text);">{{ module.module_type.title() if module.module_type else 'Mixed' }} Content</h4>
+      <p class="mt-1">In a production deployment, this section would embed the actual {{ module.module_type or 'mixed' }} content —
+      {% if module.module_type == 'video' %}a video player with the lesson{% elif module.module_type == 'labs' %}an interactive lab environment{% elif module.module_type == 'project' %}a project workspace{% else %}the reading material{% endif %}.</p>
+      <p class="mt-2" style="font-size:0.82rem;">Estimated time: <strong style="color:var(--text);">{{ module.duration_min or 60 }} minutes</strong></p>
+    </div>
+  </div>
+
+  <!-- Assessment -->
+  <form method="POST" action="{{ url_for('learning_path.complete_module', path_id=path.id, path_module_id=pm.id) }}" id="assessForm">
+    <div class="assessment-section card">
+      <div class="assess-title">
+        📝 Module Assessment
+        <span style="font-size:0.8rem;color:var(--text-muted);font-weight:400;">({{ questions|length }} questions)</span>
+      </div>
+
+      {% for i, q in enumerate(questions) %}
+      <div class="assess-question">
+        <div class="assess-q-text">{{ i + 1 }}. {{ q.q }}</div>
+        <div class="assess-options">
+          {% for j, opt in enumerate(q.opts) %}
+          <div class="assess-opt">
+            <input type="radio" name="q_{{ i }}" id="aq{{ i }}_{{ j }}" value="{{ j }}" onchange="checkAllAnswered()">
+            <label for="aq{{ i }}_{{ j }}">
+              <span class="opt-letter">{{ ['A','B','C','D'][j] }}</span>
+              {{ opt }}
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <div style="text-align:center;margin-top:1rem;">
+        <button type="submit" class="btn btn-success btn-lg" id="completeBtn" disabled>
+          ✅ Complete Module
+        </button>
+        <p class="mt-1 text-sm text-muted" id="completeNote">Answer all {{ questions|length }} questions to complete</p>
+      </div>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const total = {{ questions|length }};
+
+function checkAllAnswered() {
+  const answered = new Set();
+  document.querySelectorAll('input[type="radio"]:checked').forEach(r => answered.add(r.name));
+  const btn = document.getElementById('completeBtn');
+  const note = document.getElementById('completeNote');
+  if (answered.size >= total) {
+    btn.disabled = false;
+    note.textContent = '✓ Ready to complete!';
+    note.style.color = 'var(--success)';
+  }
+}
+</script>
+{% endblock %}

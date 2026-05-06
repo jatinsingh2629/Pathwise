@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% block title %}Your Profile{% endblock %}
+
+{% block extra_head %}
+<style>
+.profile-view-wrap {
+  max-width: 900px; margin: 0 auto; padding: 2rem;
+}
+
+.profile-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 2rem;
+  margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--border);
+}
+
+.profile-title h1 { margin-bottom: 0.5rem; }
+.profile-title .meta { color: var(--text-muted); font-size: 0.9rem; }
+
+.profile-actions {
+  display: flex; gap: 10px;
+}
+
+.profile-section {
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  padding: 1rem 1.5rem; background: var(--surface2); border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+
+.section-header .section-tag {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  background: var(--accent-glow); color: var(--accent2);
+  font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.section-header .section-title { font-size: 1.05rem; font-weight: 700; }
+
+.profile-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
+}
+
+.profile-grid.full { grid-template-columns: 1fr; }
+
+.profile-item {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.profile-item-label {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.5rem;
+}
+
+.profile-item-value {
+  font-size: 1rem; color: var(--text); font-weight: 500;
+}
+
+.profile-item-icon {
+  font-size: 1.5rem; margin-right: 0.5rem;
+  display: inline-block;
+}
+
+.goal-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.5rem;
+  border-left: 4px solid var(--accent);
+}
+
+.goal-box .label {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+  letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.75rem;
+}
+
+.goal-box .text {
+  font-size: 1rem; line-height: 1.6; color: var(--text);
+}
+
+.quiz-score-card {
+  background: linear-gradient(135deg, var(--accent-glow), rgba(16,185,129,0.08));
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 2rem; text-align: center;
+}
+
+.quiz-score-card .score {
+  font-size: 3rem; font-weight: 800; color: var(--accent2);
+  margin-bottom: 0.5rem; font-family: var(--font-head);
+}
+
+.quiz-score-card .label {
+  font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.75rem;
+}
+
+.quiz-score-card .path-level {
+  display: inline-block; padding: 6px 14px; border-radius: 6px;
+  background: var(--accent-glow); color: var(--accent2); font-weight: 600; font-size: 0.9rem;
+}
+
+.edit-mode-notice {
+  display: none;
+}
+
+.edit-mode-notice.show {
+  display: block; padding: 1rem; border-radius: var(--radius);
+  background: rgba(59,130,246,0.1); border-left: 4px solid #3B82F6;
+  margin-bottom: 2rem;
+  color: #60A5FA; font-size: 0.9rem;
+}
+
+@media (max-width: 768px) {
+  .profile-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
+  .profile-grid { grid-template-columns: 1fr; }
+  .quiz-score-card { padding: 1.5rem; }
+  .quiz-score-card .score { font-size: 2.5rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-view-wrap">
+  <!-- Header -->
+  <div class="profile-header">
+    <div class="profile-title">
+      <h1>Your Learning Profile</h1>
+      <div class="meta">Profile created • Updated {{ profile.updated_at }}</div>
+    </div>
+    <div class="profile-actions">
+      <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-primary">
+        ✏️ Edit Profile
+      </a>
+      <a href="{{ url_for('dashboard.home') }}" class="btn btn-secondary">
+        ← Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- Persona Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Who You Are</div>
+      <div class="section-title">Learner Persona</div>
+    </div>
+    <div class="profile-grid full">
+      <div class="profile-item">
+        <div class="profile-item-label">You are a</div>
+        <div class="profile-item-value">
+          <span class="profile-item-icon">{{ profile.persona[0] }}</span>
+          <strong>{{ profile.persona[1] }}</strong>
+          <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+            {{ profile.persona[2] }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning Goal Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Your Goal</div>
+      <div class="section-title">What You Want to Learn</div>
+    </div>
+    <div class="goal-box">
+      <div class="label">Learning Goal</div>
+      <div class="text">{{ profile.learning_goal }}</div>
+    </div>
+    <div style="margin-top: 1rem;">
+      <div class="profile-item" style="display: inline-block; min-width: 200px;">
+        <div class="profile-item-label">Domain Detected</div>
+        <div class="profile-item-value" style="color: var(--success);">
+          🎯 {{ profile.goal_domain }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skill & Background Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Your Background</div>
+      <div class="section-title">Skills & Experience</div>
+    </div>
+    <div class="profile-grid">
+      <div class="profile-item">
+        <div class="profile-item-label">Current Skill Level</div>
+        <div class="profile-item-value">{{ profile.skill_level }}</div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-item-label">Technical Background</div>
+        <div class="profile-item-value">{{ profile.background }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Learning Preferences Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Your Preferences</div>
+      <div class="section-title">How You Learn Best</div>
+    </div>
+    <div class="profile-grid">
+      <div class="profile-item">
+        <div class="profile-item-label">Learning Style</div>
+        <div class="profile-item-value">{{ profile.learning_style }}</div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-item-label">Available Time</div>
+        <div class="profile-item-value">{{ profile.memory_capacity }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assessment Results Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Assessment Results</div>
+      <div class="section-title">Your Quiz Performance</div>
+    </div>
+    <div class="quiz-score-card">
+      <div class="score">{{ profile.quiz_score }}</div>
+      <div class="label">Quiz Score</div>
+      <div class="path-level">📊 Recommended Path Level: {{ profile.path_level }}</div>
+    </div>
+  </div>
+
+  <!-- Timeline Section -->
+  <div class="profile-section">
+    <div class="section-header">
+      <div class="section-tag">Timeline</div>
+      <div class="section-title">Profile History</div>
+    </div>
+    <div class="profile-grid">
+      <div class="profile-item">
+        <div class="profile-item-label">Created On</div>
+        <div class="profile-item-value">📅 {{ profile.created_at }}</div>
+      </div>
+      <div class="profile-item">
+        <div class="profile-item-label">Last Updated</div>
+        <div class="profile-item-value">🔄 {{ profile.updated_at }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div style="margin-top: 3rem; display: flex; gap: 1rem; justify-content: center;">
+    <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-primary btn-lg">
+      ✏️ Edit Your Profile
+    </a>
+    <a href="{{ url_for('dashboard.home') }}" class="btn btn-secondary btn-lg">
+      ← Back to Dashboard
+    </a>
+  </div>
+</div>
+{% endblock %}

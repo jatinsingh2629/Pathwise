@@ -1,0 +1,110 @@
+/* static/css/app.css - Additional component styles */
+
+/* ── LOADING OVERLAY ──────────────────────────────────────── */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(8,9,14,0.92);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 20px;
+}
+.loading-spinner {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { color: var(--text-dim); font-size: 0.9rem; }
+.loading-steps { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.loading-step { font-size: 0.8rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+.loading-step.done  { color: var(--success); }
+.loading-step.active { color: var(--accent2); }
+.loading-step .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ── TOOLTIP ──────────────────────────────────────────────── */
+[data-tip] { position: relative; cursor: help; }
+[data-tip]::after {
+  content: attr(data-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2); color: var(--text);
+  padding: 5px 10px; border-radius: 6px; font-size: 0.76rem;
+  white-space: nowrap; border: 1px solid var(--border);
+  pointer-events: none; opacity: 0; transition: opacity 0.2s;
+  z-index: 100;
+}
+[data-tip]:hover::after { opacity: 1; }
+
+/* ── SIMILARITY GAUGE ─────────────────────────────────────── */
+.sim-gauge { display: flex; align-items: center; gap: 10px; font-size: 0.82rem; }
+.sim-bar-wrap { flex: 1; background: var(--border); border-radius: 99px; height: 4px; }
+.sim-bar { height: 4px; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.sim-score { font-weight: 700; color: var(--accent2); min-width: 40px; text-align: right; }
+
+/* ── SKILL RADAR (CSS only) ───────────────────────────────── */
+.skill-list { display: flex; flex-direction: column; gap: 10px; }
+.skill-item { display: flex; align-items: center; gap: 10px; font-size: 0.85rem; }
+.skill-name { min-width: 120px; color: var(--text-dim); }
+.skill-bar-wrap { flex: 1; background: var(--border); border-radius: 99px; height: 5px; overflow: hidden; }
+.skill-bar { height: 5px; border-radius: 99px; transition: width 1s ease 0.2s; }
+.skill-pct { min-width: 36px; text-align: right; font-weight: 600; font-size: 0.8rem; }
+
+/* ── NOTIFICATION DOT ─────────────────────────────────────── */
+.notif-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+  box-shadow: 0 0 6px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.85)} }
+
+/* ── DOMAIN COLOR MAP ─────────────────────────────────────── */
+.domain-cybersecurity  { color: #EF4444; }
+.domain-data_science   { color: #6366F1; }
+.domain-web_development { color: #3B82F6; }
+.domain-cloud_computing { color: #F59E0B; }
+.domain-programming    { color: #10B981; }
+
+/* ── SECTION DIVIDER WITH LABEL ───────────────────────────── */
+.section-divider {
+  display: flex; align-items: center; gap: 12px; margin: 2rem 0;
+}
+.section-divider::before, .section-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.section-divider-label {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-muted); white-space: nowrap;
+}
+
+/* ── EMPTY STATE ILLUSTRATION ─────────────────────────────── */
+.empty-illustration { opacity: 0.3; filter: grayscale(1); }
+
+/* ── HOVER CARD LIFT ──────────────────────────────────────── */
+.lift { transition: transform var(--transition), box-shadow var(--transition); }
+.lift:hover { transform: translateY(-3px); box-shadow: 0 12px 36px rgba(0,0,0,0.3); }
+
+/* ── ANIMATED GRADIENT TEXT ───────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent2), #C084FC, var(--accent2));
+  background-size: 200%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradientShift 4s ease infinite;
+}
+@keyframes gradientShift { 0%,100%{background-position:0%} 50%{background-position:100%} }
+
+/* ── FADE IN ANIMATION ────────────────────────────────────── */
+.fade-in { animation: fadeIn 0.4s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── GLOW BUTTON ──────────────────────────────────────────── */
+.btn-glow { box-shadow: 0 0 20px rgba(99,102,241,0.4); }
+.btn-glow:hover { box-shadow: 0 0 35px rgba(99,102,241,0.6); }
+
+/* ── RESPONSIVE HELPERS ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .hide-mobile { display: none !important; }
+  .full-mobile { width: 100%; }
+}

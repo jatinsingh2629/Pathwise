@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block extra_head %}
+<style>
+.welcome-banner {
+  padding: 2.5rem; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(99,102,241,0.04) 100%);
+  border: 1px solid rgba(99,102,241,0.25);
+  margin-bottom: 2rem; position: relative; overflow: hidden;
+}
+.welcome-banner::before {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%);
+  pointer-events: none;
+}
+.welcome-name { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; }
+.welcome-sub  { color: var(--text-muted); margin-top: 4px; }
+.path-progress-wrap { margin-top: 1.5rem; }
+.path-progress-label { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 0.85rem; }
+.path-progress-bar-wrap { background: rgba(255,255,255,0.06); border-radius: 99px; height: 8px; }
+.path-progress-bar { height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 1s ease; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+.stat-card-item { text-align: center; padding: 1.25rem; }
+.stat-icon { font-size: 1.5rem; margin-bottom: 8px; }
+.module-list { display: flex; flex-direction: column; gap: 10px; }
+.empty-state { text-align: center; padding: 3rem 2rem; }
+.empty-icon  { font-size: 3rem; margin-bottom: 1rem; }
+.section-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 1rem; }
+.path-card { padding: 1.25rem; border-radius: var(--radius); background: var(--surface2); border: 1px solid var(--border); margin-bottom: 8px; display: flex; align-items: center; gap: 16px; }
+.path-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.path-status-dot.active { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.path-status-dot.completed { background: var(--accent2); }
+.cbr-info { padding: 12px 16px; border-radius: var(--radius); background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.15); font-size: 0.82rem; color: var(--text-muted); margin-top: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="main">
+  <!-- Welcome Banner -->
+  <div class="welcome-banner">
+    <div class="flex-between">
+      <div>
+        <div class="welcome-name">Hello, {{ current_user.full_name or current_user.username }} 👋</div>
+        <div class="welcome-sub">
+          {% if profile %}
+            Domain: <strong style="color:var(--accent2);">{{ profile.goal_domain.replace('_',' ').title() if profile.goal_domain else 'Not set' }}</strong>
+            &nbsp;·&nbsp; Level: <strong style="color:var(--accent2);">{{ profile.skill_level.title() if profile.skill_level else 'Not set' }}</strong>
+          {% else %}
+            Complete your profile to get started
+          {% endif %}
+        </div>
+      </div>
+      <div style="text-align:right;">
+        {% if not profile %}
+        <a href="{{ url_for('profile.create_profile') }}" class="btn btn-primary">Set up Profile →</a>
+        {% elif profile.quiz_score is none %}
+        <a href="{{ url_for('profile.quiz') }}" class="btn btn-primary">Take Quiz →</a>
+        {% else %}
+        <a href="{{ url_for('learning_path.generate') }}" class="btn btn-primary">Generate New Path →</a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if active_path %}
+    <div class="path-progress-wrap">
+      <div class="path-progress-label">
+        <span>{{ active_path.title }}</span>
+        <span style="color:var(--accent2);">{{ active_path.get_completion_percentage() }}%</span>
+      </div>
+      <div class="path-progress-bar-wrap">
+        <div class="path-progress-bar" style="width: {{ active_path.get_completion_percentage() }}%"></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <a href="{{ url_for('learning_path.view_path', path_id=active_path.id) }}" class="btn btn-sm btn-primary">
+          Continue Learning
+        </a>
+        <span class="badge badge-{{ active_path.difficulty or 'intermediate' }}" style="align-self:center;">
+          {{ active_path.difficulty or 'intermediate' }}
+        </span>
+        <span style="font-size:0.8rem;color:var(--text-muted);align-self:center;">
+          {{ active_path.estimated_hours }}h · {{ active_path.total_modules }} modules
+        </span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Stats -->
+  <div class="stat-grid">
+    <div class="card stat-card-item">
+      <div class="stat-icon">🛤️</div>
+      <div class="stat-value">{{ stats.paths_started }}</div>
+      <div class="stat-label">Paths Started</div>
+    </div>
+    <div class="card stat-card-item">
+      <div class="stat-icon">✅</div>
+      <div class="stat-value">{{ stats.paths_completed }}</div>
+      <div class="stat-label">Completed</div>
+    </div>
+    <div class="card stat-card-item">
+      <div class="stat-icon">📚</div>
+      <div class="stat-value">{{ stats.total_modules_done }}</div>
+      <div class="stat-label">Modules Done</div>
+    </div>
+    <div class="card stat-card-item">
+      <div class="stat-icon">🎯</div>
+      <div class="stat-value">{{ stats.avg_score }}%</div>
+      <div class="stat-label">Avg. Score</div>
+    </div>
+  </div>
+
+  <!-- Two-column: Paths + Profile -->
+  <div class="grid-2" style="align-items:start;">
+    <div>
+      <div class="section-label">Learning Paths</div>
+      {% if all_paths %}
+        {% for path in all_paths[:5] %}
+        <div class="path-card">
+          <div class="path-status-dot {{ path.status }}"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ path.title }}
+            </div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
+              {{ path.get_completion_percentage() }}% · {{ path.total_modules }} modules · {{ path.estimated_hours }}h
+            </div>
+          </div>
+          <a href="{{ url_for('learning_path.view_path', path_id=path.id) }}" class="btn btn-sm btn-secondary">
+            {{ 'View' if path.status == 'completed' else 'Continue' }}
+          </a>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="card empty-state">
+          <div class="empty-icon">🛤️</div>
+          <h3>No learning paths yet</h3>
+          <p class="mt-1">Complete your profile and quiz to generate your first personalized path.</p>
+          {% if not profile %}
+          <a href="{{ url_for('profile.create_profile') }}" class="btn btn-primary mt-3">Create Profile →</a>
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <!-- Profile Summary -->
+      {% if profile %}
+      <div class="section-label">Your Profile</div>
+      <div class="card mb-3">
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          {% set profile_items = [
+            ('Persona', profile.persona.replace('_',' ').title()),
+            ('Skill Level', profile.skill_level.title()),
+            ('Background', profile.background.replace('_',' ').title()),
+            ('Learning Style', profile.learning_style.title()),
+            ('Memory', profile.memory_capacity.title()),
+          ] %}
+          {% for label, value in profile_items %}
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.875rem;">
+            <span style="color:var(--text-muted);">{{ label }}</span>
+            <span style="font-weight:600;">{{ value }}</span>
+          </div>
+          {% endfor %}
+          {% if profile.quiz_score is not none %}
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.875rem;">
+            <span style="color:var(--text-muted);">Quiz Score</span>
+            <span style="font-weight:600;color:{% if profile.quiz_score >= 50 %}var(--success){% else %}var(--warning){% endif %};">
+              {{ profile.quiz_score }}%
+            </span>
+          </div>
+          {% endif %}
+        </div>
+        <a href="{{ url_for('profile.create_profile') }}" class="btn btn-secondary btn-full btn-sm mt-3">Edit Profile</a>
+      </div>
+      {% endif %}
+
+      <!-- Recent Assessments -->
+      {% if recent_assessments %}
+      <div class="section-label">Recent Assessments</div>
+      <div class="card">
+        {% for a in recent_assessments %}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.85rem;">
+          <span style="color:var(--text-dim);">Module #{{ a.module_id }}</span>
+          <span style="font-weight:700;color:{% if a.score >= 70 %}var(--success){% elif a.score >= 50 %}var(--warning){% else %}var(--error){% endif %};">
+            {{ a.score|round|int }}%
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- CBR Info -->
+      <div class="cbr-info mt-3">
+        <strong style="color:var(--accent2);">🧠 How PathWise Works</strong><br>
+        Your path is generated by <strong>Case-Based Reasoning (CBR)</strong> — finding similar past learners —
+        combined with <strong>Rule-Based Reasoning (RBR)</strong> that filters modules to match your exact profile.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
