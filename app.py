@@ -115,3 +115,6 @@ if __name__ == '__main__':
         debug=True,
         use_reloader=False  # Disable reloader to avoid double BERT load
     )
+
+# ── Create app instance for Gunicorn ──────────────────────────────────────────
+app = create_app('production')
