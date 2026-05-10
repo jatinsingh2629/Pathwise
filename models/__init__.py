@@ -6,9 +6,10 @@ from .course import Course, Module
 from .learning_path import LearningPath, LearningPathModule
 from .progress import Progress, ModuleAssessment
 from .case_base import CaseBase
+from .resource import Resource
 
 __all__ = [
     'db', 'User', 'LearnerProfile', 'Course', 'Module',
     'LearningPath', 'LearningPathModule', 'Progress',
-    'ModuleAssessment', 'CaseBase'
+    'ModuleAssessment', 'CaseBase', 'Resource'
 ]

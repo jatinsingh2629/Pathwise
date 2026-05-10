@@ -68,12 +68,14 @@ def create_app(config_name: str = 'default') -> Flask:
     from routes.learning_path import lp_bp
     from routes.dashboard import dashboard_bp
     from routes.comparison import comparison_bp
+    from routes.resources import resources_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(profile_bp)
     app.register_blueprint(lp_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(comparison_bp)
+    app.register_blueprint(resources_bp)
 
     # ── Jinja2 globals / filters ─────────────────────────────────────────────
     app.jinja_env.globals['enumerate'] = enumerate
@@ -88,7 +90,7 @@ def create_app(config_name: str = 'default') -> Flask:
     with app.app_context():
         from models import (
             db as _db, User, LearnerProfile, Course, Module,
-            LearningPath, LearningPathModule, Progress, ModuleAssessment, CaseBase
+            LearningPath, LearningPathModule, Progress, ModuleAssessment, CaseBase, Resource
         )
         _db.create_all()
         logger.info("✅ Database tables created.")
