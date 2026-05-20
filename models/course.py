@@ -83,6 +83,9 @@ class Module(db.Model):
     # Assessment questions for this module (JSON)
     assessment_questions_json = db.Column(db.Text, nullable=True)
 
+    # Relationships
+    resources = db.relationship('Resource', backref='module', lazy=True, cascade='all, delete-orphan')
+
     def get_tags(self) -> list:
         if self.tags_json:
             return json.loads(self.tags_json)

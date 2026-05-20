@@ -32,6 +32,55 @@
 }
 .assess-opt input:checked + label .opt-letter { background: var(--accent); color: #fff; }
 .completed-state { text-align: center; padding: 2rem; color: var(--success); }
+
+/* ── Resources section ───────────────────────────────────────────────────── */
+.resources-section {
+  margin-top: 2rem;
+  padding: 1.75rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.resources-section-title {
+  font-size: 1rem; font-weight: 700;
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 1.25rem;
+}
+.resource-quick-list { display: flex; flex-direction: column; gap: 10px; }
+.resource-quick-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  transition: all var(--transition);
+  text-decoration: none;
+}
+.resource-quick-item:hover {
+  border-color: rgba(99,102,241,0.4);
+  background: var(--accent-glow);
+}
+.resource-quick-item.highlighted {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.resource-quick-icon {
+  font-size: 1.2rem; flex-shrink: 0;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border-radius: 8px; border: 1px solid var(--border);
+}
+.resource-quick-body { flex: 1; min-width: 0; }
+.resource-quick-title {
+  font-size: 0.875rem; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.resource-quick-meta {
+  font-size: 0.75rem; color: var(--text-muted);
+  display: flex; gap: 8px; margin-top: 2px; flex-wrap: wrap;
+}
+.resource-quick-arrow { color: var(--text-muted); font-size: 0.9rem; flex-shrink: 0; }
+.resource-quick-item:hover .resource-quick-arrow { color: var(--accent2); }
 </style>
 {% endblock %}
 
@@ -75,6 +124,93 @@
       <p class="mt-2" style="font-size:0.82rem;">Estimated time: <strong style="color:var(--text);">{{ module.duration_min or 60 }} minutes</strong></p>
     </div>
   </div>
+
+  <!-- Resources Section -->
+  {% set all_resources = module.resources %}
+  {% if all_resources %}
+  <div class="resources-section">
+    <div class="resources-section-title">
+      📚 Learning Resources
+      <span style="font-size:0.8rem;color:var(--text-muted);font-weight:400;">
+        ({{ all_resources | length }} available)
+      </span>
+    </div>
+
+    {# Determine user's learning style from their profile if available.
+       Profile uses 'theory' but resources use 'reading' — normalise. #}
+    {% set raw_style = current_user.profile.learning_style if current_user.profile else none %}
+    {# Normalise: 'theory' → 'reading'; 'mixed' has no single style filter #}
+    {% set user_style = 'reading' if raw_style == 'theory' else (raw_style if raw_style in ['video','reading','labs','project'] else none) %}
+
+    {# Show style-matched resources first (highlighted), then others #}
+    {% set matched = all_resources | selectattr('learning_style', 'equalto', user_style) | list %}
+    {% set others  = all_resources | rejectattr('learning_style', 'equalto', user_style) | list %}
+
+    {% if user_style and matched %}
+    <div style="margin-bottom:10px;">
+      <div style="font-size:0.75rem;font-weight:700;color:var(--accent2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">
+        ✨ Matches your learning style ({{ user_style }})
+      </div>
+      <div class="resource-quick-list">
+        {% for res in matched[:3] %}
+        <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer"
+           class="resource-quick-item highlighted">
+          <div class="resource-quick-icon">{{ res.type_icon }}</div>
+          <div class="resource-quick-body">
+            <div class="resource-quick-title">{{ res.title }}</div>
+            <div class="resource-quick-meta">
+              <span>{{ res.provider }}</span>
+              {% if res.duration_min %}<span>⏱ {{ res.duration_min }} min</span>{% endif %}
+              <span>★ {{ "%.1f"|format(res.rating) }}</span>
+            </div>
+          </div>
+          <span class="resource-quick-arrow">↗</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if others %}
+    {% if user_style and matched %}
+    <div style="font-size:0.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin:14px 0 8px;">
+      Other formats
+    </div>
+    {% endif %}
+    <div class="resource-quick-list">
+      {% for res in others[:4] %}
+      <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer"
+         class="resource-quick-item">
+        <div class="resource-quick-icon">{{ res.type_icon }}</div>
+        <div class="resource-quick-body">
+          <div class="resource-quick-title">{{ res.title }}</div>
+          <div class="resource-quick-meta">
+            <span class="badge badge-{{ res.learning_style }}" style="padding:1px 7px;font-size:0.7rem;">{{ res.learning_style }}</span>
+            <span>{{ res.provider }}</span>
+            {% if res.duration_min %}<span>⏱ {{ res.duration_min }} min</span>{% endif %}
+          </div>
+        </div>
+        <span class="resource-quick-arrow">↗</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- View all resources link -->
+    <div style="margin-top:1rem;text-align:center;">
+      <a href="{{ url_for('resources.module_resources', module_id=module.id) }}"
+         class="btn btn-secondary btn-sm">
+        View all {{ all_resources | length }} resources →
+      </a>
+      {% if user_style %}
+      <a href="{{ url_for('resources.module_resources_by_style', module_id=module.id, style=user_style) }}"
+         class="btn btn-secondary btn-sm" style="margin-left:8px;">
+        {{ user_style | capitalize }} only →
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Assessment -->
   <form method="POST" action="{{ url_for('learning_path.complete_module', path_id=path.id, path_module_id=pm.id) }}" id="assessForm">

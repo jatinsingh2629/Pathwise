@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Resources — {{ module.title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Page layout ─────────────────────────────────────────────────────────── */
+.resources-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+
+/* ── Style filter tabs ───────────────────────────────────────────────────── */
+.style-tabs {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+.style-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 18px; border-radius: 99px;
+  font-size: 0.85rem; font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface2); color: var(--text-dim);
+  text-decoration: none; transition: all var(--transition);
+  cursor: pointer;
+}
+.style-tab:hover { border-color: var(--accent2); color: var(--text); }
+.style-tab.active {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent2);
+}
+.style-tab .tab-count {
+  background: var(--border); color: var(--text-muted);
+  border-radius: 99px; padding: 1px 7px;
+  font-size: 0.72rem; font-weight: 700;
+}
+.style-tab.active .tab-count { background: var(--accent); color: #fff; }
+
+/* ── Resource grid ───────────────────────────────────────────────────────── */
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.25rem;
+}
+
+/* ── Resource card ───────────────────────────────────────────────────────── */
+.resource-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex; flex-direction: column; gap: 12px;
+  transition: all var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+.resource-card:hover {
+  border-color: rgba(99,102,241,0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+.resource-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.resource-card.style-video::before    { background: linear-gradient(90deg, #6366F1, #818CF8); }
+.resource-card.style-reading::before  { background: linear-gradient(90deg, #8B5CF6, #C084FC); }
+.resource-card.style-labs::before     { background: linear-gradient(90deg, #14B8A6, #2DD4BF); }
+.resource-card.style-project::before  { background: linear-gradient(90deg, #F97316, #FB923C); }
+
+/* Card header */
+.resource-card-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.resource-type-icon {
+  width: 44px; height: 44px; border-radius: var(--radius);
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; flex-shrink: 0;
+}
+.resource-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Card body */
+.resource-title {
+  font-family: var(--font-head);
+  font-size: 1rem; font-weight: 700;
+  color: var(--text); line-height: 1.3;
+}
+.resource-desc {
+  font-size: 0.85rem; color: var(--text-dim);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Card meta row */
+.resource-meta {
+  display: flex; align-items: center; gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.resource-meta-item { display: flex; align-items: center; gap: 4px; }
+.resource-rating { color: #F59E0B; font-weight: 700; }
+
+/* Card footer */
+.resource-footer {
+  margin-top: auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.resource-provider {
+  font-size: 0.78rem; color: var(--text-muted);
+  display: flex; align-items: center; gap: 4px;
+}
+.btn-resource {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius);
+  font-size: 0.82rem; font-weight: 600;
+  background: var(--accent-glow); color: var(--accent2);
+  border: 1px solid var(--accent);
+  text-decoration: none; transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn-resource:hover {
+  background: var(--accent); color: #fff;
+  transform: translateY(-1px);
+}
+
+/* ── Style-specific badge colours ────────────────────────────────────────── */
+.badge-reading   { background: rgba(168,85,247,0.15); color: #C084FC; }
+.badge-video     { background: rgba(99,102,241,0.15);  color: #818CF8; }
+.badge-labs      { background: rgba(20,184,166,0.15);  color: #2DD4BF; }
+.badge-project   { background: rgba(249,115,22,0.15);  color: #FB923C; }
+.badge-article        { background: rgba(168,85,247,0.12); color: #C084FC; }
+.badge-tutorial       { background: rgba(20,184,166,0.12); color: #2DD4BF; }
+.badge-documentation  { background: rgba(99,102,241,0.12); color: #818CF8; }
+.badge-code_example   { background: rgba(16,185,129,0.12); color: #10B981; }
+.badge-project-type   { background: rgba(249,115,22,0.12); color: #FB923C; }
+
+/* ── Empty state ─────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+.empty-state-icon { font-size: 3rem; margin-bottom: 1rem; }
+
+/* ── Section header ──────────────────────────────────────────────────────── */
+.section-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 1.25rem;
+}
+.section-divider {
+  height: 1px; background: var(--border); flex: 1;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .resources-wrap { padding: 1.25rem; }
+  .resource-grid { grid-template-columns: 1fr; }
+  .style-tabs { gap: 6px; }
+  .style-tab { padding: 6px 12px; font-size: 0.8rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="resources-wrap">
+
+  <!-- Breadcrumb -->
+  <div style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.5rem;">
+    <a href="{{ url_for('dashboard.home') }}" style="color:var(--accent2);">Dashboard</a>
+    &nbsp;/&nbsp;
+    <span>{{ module.domain | title_domain }}</span>
+    &nbsp;/&nbsp;
+    <span style="color:var(--text);">Resources</span>
+  </div>
+
+  <!-- Page header -->
+  <div style="margin-bottom:2rem;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="badge badge-{{ module.module_type or 'mixed' }}">{{ module.module_type or 'mixed' }}</span>
+      <span class="badge badge-{{ module.difficulty or 'beginner' }}">{{ module.difficulty or 'beginner' }}</span>
+      <span class="badge badge-domain">{{ module.domain | title_domain }}</span>
+    </div>
+    <h2 style="margin-bottom:6px;">📚 Learning Resources</h2>
+    <p style="font-size:0.9rem;">
+      Curated resources for <strong style="color:var(--text);">{{ module.title }}</strong> —
+      choose the format that matches your learning style.
+    </p>
+  </div>
+
+  <!-- Style filter tabs -->
+  {% set style_meta = {
+    'video':   {'icon': '🎬', 'label': 'Video'},
+    'reading': {'icon': '📖', 'label': 'Reading'},
+    'labs':    {'icon': '🔬', 'label': 'Labs'},
+    'project': {'icon': '🛠️', 'label': 'Projects'},
+  } %}
+
+  <div class="style-tabs">
+    <a href="{{ url_for('resources.module_resources', module_id=module.id) }}"
+       class="style-tab {% if active_style is none %}active{% endif %}">
+      🗂️ All
+      <span class="tab-count">{{ resources | length if active_style is none else grouped.values() | sum(attribute='__len__') }}</span>
+    </a>
+    {% for style_key, meta in style_meta.items() %}
+      {% if grouped.get(style_key) %}
+      <a href="{{ url_for('resources.module_resources_by_style', module_id=module.id, style=style_key) }}"
+         class="style-tab {% if active_style == style_key %}active{% endif %}">
+        {{ meta.icon }} {{ meta.label }}
+        <span class="tab-count">{{ grouped[style_key] | length }}</span>
+      </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <!-- Resource cards -->
+  {% if resources %}
+    {% if active_style %}
+      <!-- Single-style view: flat grid -->
+      <div class="resource-grid">
+        {% for res in resources %}
+          {{ _render_card(res) }}
+        {% endfor %}
+      </div>
+    {% else %}
+      <!-- All-styles view: grouped by style -->
+      {% for style_key, meta in style_meta.items() %}
+        {% if grouped.get(style_key) %}
+        <div style="margin-bottom:2.5rem;">
+          <div class="section-header">
+            <span style="font-size:1.1rem;">{{ meta.icon }}</span>
+            <h3 style="font-size:1rem;font-weight:700;color:var(--text);">{{ meta.label }}</h3>
+            <div class="section-divider"></div>
+            <span style="font-size:0.78rem;color:var(--text-muted);white-space:nowrap;">
+              {{ grouped[style_key] | length }} resource{{ 's' if grouped[style_key] | length != 1 else '' }}
+            </span>
+          </div>
+          <div class="resource-grid">
+            {% for res in grouped[style_key] %}
+              {{ _render_card(res) }}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  {% else %}
+    <div class="empty-state card">
+      <div class="empty-state-icon">🔍</div>
+      <h3 style="color:var(--text);margin-bottom:8px;">No resources found</h3>
+      <p>
+        {% if active_style %}
+          There are no <strong>{{ active_style }}</strong> resources for this module yet.
+          <a href="{{ url_for('resources.module_resources', module_id=module.id) }}" style="color:var(--accent2);">View all styles →</a>
+        {% else %}
+          No resources have been added for this module yet.
+        {% endif %}
+      </p>
+    </div>
+  {% endif %}
+
+</div>
+
+{# ── Card macro ──────────────────────────────────────────────────────────── #}
+{% macro _render_card(res) %}
+<div class="resource-card style-{{ res.learning_style }}">
+
+  <!-- Header: icon + badges -->
+  <div class="resource-card-header">
+    <div class="resource-type-icon">{{ res.type_icon }}</div>
+    <div class="resource-badges">
+      <span class="badge badge-{{ res.resource_type }}">{{ res.resource_type.replace('_', ' ') }}</span>
+      <span class="badge badge-{{ res.learning_style }}">{{ res.style_icon }} {{ res.learning_style }}</span>
+      <span class="badge badge-{{ res.difficulty }}">{{ res.difficulty }}</span>
+    </div>
+  </div>
+
+  <!-- Title -->
+  <div class="resource-title">{{ res.title }}</div>
+
+  <!-- Description -->
+  {% if res.description %}
+  <div class="resource-desc">{{ res.description }}</div>
+  {% endif %}
+
+  <!-- Meta: duration + rating -->
+  <div class="resource-meta">
+    {% if res.duration_min %}
+    <span class="resource-meta-item">
+      ⏱
+      {% if res.duration_min >= 60 %}
+        {{ (res.duration_min / 60) | round(1) }}h
+      {% else %}
+        {{ res.duration_min }} min
+      {% endif %}
+    </span>
+    {% endif %}
+    {% if res.rating %}
+    <span class="resource-meta-item resource-rating">
+      ★ {{ "%.1f"|format(res.rating) }}
+    </span>
+    {% endif %}
+    {% if res.is_external %}
+    <span class="resource-meta-item" title="External resource">🔗 External</span>
+    {% endif %}
+  </div>
+
+  <!-- Footer: provider + CTA -->
+  <div class="resource-footer">
+    <span class="resource-provider">
+      {% if res.provider %}📦 {{ res.provider }}{% endif %}
+    </span>
+    {% if res.url %}
+    <a href="{{ res.url }}" target="_blank" rel="noopener noreferrer" class="btn-resource">
+      Open ↗
+    </a>
+    {% endif %}
+  </div>
+
+</div>
+{% endmacro %}
+{% endblock %}
